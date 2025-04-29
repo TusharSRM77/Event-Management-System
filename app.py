@@ -1,17 +1,18 @@
-from flask import Flask, render_template, request, redirect, Response, flash, session, url_for
+from flask import Flask, render_template, request, redirect, Response, flash, session, url_for, jsonify
 from flask_mysqldb import MySQL
-from dotenv import load_dotenv
-import os
-import csv
-import re
 from werkzeug.security import generate_password_hash, check_password_hash
+from functools import wraps
+from dotenv import load_dotenv
+import MySQLdb
 from MySQLdb.cursors import DictCursor
-
-
+import os
+import re
+from datetime import datetime
 
 # Load environment variables
 load_dotenv()
 
+# Initialize Flask app
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'your_fallback_secret_key')
 
@@ -21,33 +22,29 @@ app.config['MYSQL_USER'] = os.getenv('MYSQL_USER')
 app.config['MYSQL_PASSWORD'] = os.getenv('MYSQL_PASSWORD')
 app.config['MYSQL_DB'] = os.getenv('MYSQL_DB')
 
-def get_db_connection():
-    return mysql.connector.connect(
-        host='localhost',
-        user='root',
-        password='Easypassword@27',
-        database='event_management'
-    )
-
 mysql = MySQL(app)
 
 
-
-def validate_event_input(name, date, location):
-    """Validate event input fields."""
+def validate_event_input(name, date, time, location):
     errors = []
     
-    # Name validation
-    if not name or len(name) < 3:
-        errors.append("Event name must be at least 3 characters long.")
+    if not name or len(name.strip()) == 0:
+        errors.append("Event name is required")
+    elif len(name) > 100:
+        errors.append("Event name must be less than 100 characters")
     
-    # Date validation (basic check)
-    if not date:
-        errors.append("Date is required.")
+    try:
+        datetime.strptime(date, '%Y-%m-%d')  # Validate date format
+    except ValueError:
+        errors.append("Invalid date format. Please use YYYY-MM-DD")
     
-    # Location validation
-    if not location or len(location) < 2:
-        errors.append("Location must be at least 2 characters long.")
+    try:
+        datetime.strptime(time, '%H:%M')  # Validate time format
+    except ValueError:
+        errors.append("Invalid time format. Please use HH:MM")
+    
+    if location and len(location) > 150:
+        errors.append("Location must be less than 150 characters")
     
     return errors
 
@@ -66,33 +63,33 @@ def validate_registration_input(name, email):
     
     return errors
 
-from functools import wraps
-
-def login_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if not session.get('logged_in'):
-            flash('Please log in first.', 'error')
-            return redirect('/login')
-        return f(*args, **kwargs)
-    return decorated_function
-
+# Authentication Routes
 @app.route('/register_user', methods=['GET', 'POST'])
 def register_user():
-    
     if request.method == 'POST':
-        username = request.form['username']
+        registration_number = request.form['registration_number']
+        name = request.form['name']
+        email = request.form['email']
         password = request.form['password']
+        semester = request.form.get('semester')
+        year = request.form.get('year')
+        
+        # Convert empty strings to None for optional fields
+        semester = int(semester) if semester else None
+        year = int(year) if year else None
 
-        if not username or not password:
-            flash('Please fill all fields.', 'danger')
+        if not registration_number or not email or not password:
+            flash('Please fill all required fields.', 'danger')
             return redirect(url_for('register_user'))
 
         hashed_password = generate_password_hash(password)
 
         try:
             cur = mysql.connection.cursor()
-            cur.execute("INSERT INTO users (username, password) VALUES (%s, %s)", (username, hashed_password))
+            cur.execute(
+                "INSERT INTO users (registration_number, name, email, password, semester, year) VALUES (%s, %s, %s, %s, %s, %s)",
+                (registration_number, name, email, hashed_password, semester, year)
+            )
             mysql.connection.commit()
             cur.close()
             flash('Registration successful! Please login.', 'success')
@@ -103,31 +100,34 @@ def register_user():
 
     return render_template('register_user.html')
 
-@app.route('/login', methods=['GET', 'POST'])
+@app.route('/', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form['username']
+        email = request.form['email']
         password_input = request.form['password']
 
-        cursor = mysql.connection.cursor(DictCursor)
-        cursor.execute('SELECT * FROM users WHERE username = %s', (username,))
+        # Check for hardcoded admin credentials
+        if email == 'admin@admin.com' and password_input == 'admin123':
+            session['logged_in'] = True
+            session['email'] = email    
+            return redirect(url_for('index'))
+
+        # Check in the database for normal user
+        cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+        cursor.execute('SELECT * FROM users WHERE email = %s', (email,))
         user = cursor.fetchone()
         cursor.close()
 
         if user and check_password_hash(user['password'], password_input):
             session['logged_in'] = True
-            session['username'] = user['username']
-            flash('Login successful!', 'success')
-            return redirect(url_for('index'))
+            session['email'] = user['email']
+            session['name'] = user['name']
+            return redirect(url_for('user_dashboard'))
         else:
-            flash('Invalid username or password.', 'danger')
+            flash('Invalid email or password.', 'danger')
             return redirect(url_for('login'))
 
     return render_template('login.html')
-
-
-
-
 
 @app.route('/logout')
 def logout():
@@ -135,14 +135,8 @@ def logout():
     flash('You have been logged out.', 'info')
     return redirect(url_for('login'))
 
-
-
-
-
-
-# Home Page - List Events
-@app.route('/')
-@login_required
+# Event Routes
+@app.route('/admin')
 def index():
     try:
         cur = mysql.connection.cursor()
@@ -153,72 +147,51 @@ def index():
     except Exception as e:
         flash(f"Error fetching events: {str(e)}", 'error')
         return render_template('index.html', events=[])
-    
 
-    # Fetch your events and render your homepage
-    return render_template('index.html')
-
-# Add Event
 @app.route('/add', methods=['POST'])
-@login_required
 def add_event():
     name = request.form['name']
     date = request.form['date']
+    time = request.form['time']
     location = request.form['location']
 
-    # Validate input
-    input_errors = validate_event_input(name, date, location)
+    input_errors = validate_event_input(name, date, time, location)
     if input_errors:
         for error in input_errors:
             flash(error, 'error')
-        return redirect('/')
+        return redirect('/admin')
 
     try:
         cur = mysql.connection.cursor()
-        cur.execute("INSERT INTO events (name, date, location) VALUES (%s, %s, %s)", (name, date, location))
+        cur.execute("INSERT INTO events (name, date, time, location) VALUES (%s, %s, %s, %s)", 
+                   (name, date, time, location))
         mysql.connection.commit()
         cur.close()
         flash("Event added successfully!", 'success')
     except Exception as e:
         flash(f"Error adding event: {str(e)}", 'error')
     
-    return redirect('/')
+    return redirect('/admin')
 
-# Edit Event
-@app.route('/edit/<int:event_id>', methods=['GET', 'POST'])
-def edit_event(event_id):
-    cur = mysql.connection.cursor()
-
-    if request.method == 'POST':
-        name = request.form['name']
-        date = request.form['date']
-        location = request.form['location']
-
-        # Validate input
-        input_errors = validate_event_input(name, date, location)
-        if input_errors:
-            for error in input_errors:
-                flash(error, 'error')
-            return redirect(f'/edit/{event_id}')
-
-        try:
-            cur.execute("UPDATE events SET name=%s, date=%s, location=%s WHERE id=%s", (name, date, location, event_id))
-            mysql.connection.commit()
-            flash("Event updated successfully!", 'success')
-            return redirect('/')
-        except Exception as e:
-            flash(f"Error updating event: {str(e)}", 'error')
+@app.route('/update', methods=['POST'])
+def update_event():
+    event_id = request.form['id']
+    name = request.form['name']
+    date = request.form['date']
+    location = request.form['location']
 
     try:
-        cur.execute("SELECT * FROM events WHERE id = %s", (event_id,))
-        event = cur.fetchone()
-        cur.close()
-        return render_template('edit.html', event=event)
+        cursor = mysql.connection.cursor()
+        query = "UPDATE events SET name=%s, date=%s, location=%s WHERE id=%s"
+        cursor.execute(query, (name, date, location, event_id))
+        mysql.connection.commit()
+        cursor.close()
+        flash("Event updated successfully!", 'success')
     except Exception as e:
-        flash(f"Error fetching event: {str(e)}", 'error')
-        return redirect('/')
+        flash(f"Error updating event: {str(e)}", 'error')
+        
+    return redirect(url_for('index'))
 
-# Delete Event
 @app.route('/delete/<int:event_id>')
 def delete_event(event_id):
     try:
@@ -230,30 +203,15 @@ def delete_event(event_id):
     except Exception as e:
         flash(f"Error deleting event: {str(e)}", 'error')
     
-    return redirect('/')
+    return redirect('/admin')
 
-# Search Event
-@app.route('/search', methods=['GET'])
-def search():
-    query = request.args.get('query', '')
-    try:
-        cur = mysql.connection.cursor()
-        cur.execute("SELECT * FROM events WHERE name LIKE %s OR location LIKE %s", (f"%{query}%", f"%{query}%"))
-        events = cur.fetchall()
-        cur.close()
-        return render_template('index.html', events=events, query=query)
-    except Exception as e:
-        flash(f"Error searching events: {str(e)}", 'error')
-        return redirect('/')
-
-# Register for Event
+# Registration Routes
 @app.route('/register', methods=['POST'])
 def register():
     event_id = request.form['event_id']
     name = request.form['name']
     email = request.form['email']
 
-    # Validate input
     input_errors = validate_registration_input(name, email)
     if input_errors:
         for error in input_errors:
@@ -262,7 +220,8 @@ def register():
 
     try:
         cur = mysql.connection.cursor()
-        cur.execute("INSERT INTO registrations (event_id, name, email) VALUES (%s, %s, %s)", (event_id, name, email))
+        cur.execute("INSERT INTO registrations (event_id, name, email) VALUES (%s, %s, %s)", 
+                    (event_id, name, email))
         mysql.connection.commit()
         cur.close()
         flash("Registration successful!", 'success')
@@ -271,28 +230,90 @@ def register():
     
     return redirect('/')
 
-@app.route("/registrations")
-def view_registrations():
+@app.route('/register_event/<int:event_id>', methods=['POST'])
+def register_event(event_id):
     try:
         cur = mysql.connection.cursor()
+
+        # Check if already registered
+        cur.execute("SELECT * FROM registrations WHERE event_id = %s AND email = %s", 
+                    (event_id, session['email']))
+        if cur.fetchone():
+            flash("You have already registered for this event.", "warning")
+            return redirect(url_for('user_dashboard'))
+
+        cur.execute(
+            "INSERT INTO registrations (event_id, name, email) VALUES (%s, %s, %s)",
+            (event_id, session['name'], session['email'])
+        )
+        mysql.connection.commit()
+        cur.close()
+        flash("Successfully registered for the event!", "success")
+    except Exception as e:
+        flash(f"Error: {str(e)}", "danger")
+    
+    return redirect(url_for('user_dashboard'))
+
+@app.route('/view_registration/<int:event_id>')
+
+def view_event_registrations(event_id):
+    try:
+        cur = mysql.connection.cursor()
+
+        # Get event details
+        cur.execute("SELECT * FROM events WHERE id = %s", (event_id,))
+        event = cur.fetchone()
+
+        if not event:
+            flash("Event not found.", "warning")
+            return redirect(url_for('index'))
+
+        # Fetch registrations for the event
         cur.execute("""
-            SELECT registrations.id, events.name AS event_name, registrations.name, registrations.email 
-            FROM registrations 
-            JOIN events ON registrations.event_id = events.id
-            ORDER BY events.name
-        """)
+            SELECT registrations.id, registrations.name, registrations.email
+            FROM registrations
+            WHERE registrations.event_id = %s
+        """, (event_id,))
         registrations = cur.fetchall()
         cur.close()
-        if not registrations:
-            flash("No registrations found.", "warning")
-        return render_template("registrations.html", registrations=registrations)
+
+        return render_template("view_event_registrations.html", event=event, registrations=registrations)
     except Exception as e:
-        flash(f"Error fetching registrations: {str(e)}", 'error')
+        flash(f"Error: {str(e)}", "danger")
+        return redirect(url_for('index'))
+
+# User and Admin Dashboards
+@app.route('/dashboard')
+
+def user_dashboard():
+        cur = mysql.connection.cursor()
+        cur.execute("SELECT * FROM events ORDER BY date, time")
+        events = cur.fetchall()
+        cur.close()
+        return render_template('dashboard.html', events=events)
+        flash(f"Error fetching events:", 'danger')
         return redirect('/')
 
+@app.route("/users")
 
-# Export Events as CSV
+def view_users():
+    try:
+        cur = mysql.connection.cursor()
+        cur.execute("SELECT * FROM users ORDER BY id")
+        users = cur.fetchall()
+        cur.close()
+        
+        if not users:
+            flash("No users found.", "warning")
+        
+        return render_template("users.html", users=users)
+    except Exception as e:
+        flash(f"Error fetching users: {str(e)}", 'error')
+        return redirect('/')
+
+# Data Export
 @app.route('/export')
+
 def export():
     try:
         cur = mysql.connection.cursor()
@@ -307,7 +328,11 @@ def export():
 
         csv_output = '\n'.join([','.join(map(str, row)) for row in output])
 
-        return Response(csv_output, mimetype="text/csv", headers={"Content-Disposition": "attachment;filename=events.csv"})
+        return Response(
+            csv_output, 
+            mimetype="text/csv", 
+            headers={"Content-Disposition": "attachment;filename=events.csv"}
+        )
     except Exception as e:
         flash(f"Error exporting events: {str(e)}", 'error')
         return redirect('/')
