@@ -4,127 +4,302 @@
     <meta charset="UTF-8">
     <title>Register | Event Manager</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
         body {
-            background: linear-gradient(135deg, #ff9a9e 0%, #fad0c4 100%);
+            background: linear-gradient(135deg, #74ebd5 0%, #acb6e5 100%);
             height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
             font-family: 'Poppins', sans-serif;
         }
-        .card {
+        
+        .registration-container {
+            width: 80vw;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .registration-card {
             border: none;
             border-radius: 15px;
             box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+            background: white;
+            display: flex;
+            min-height: 600px;
         }
-        .btn-primary {
-            background-color: #f67280;
-            border: none;
+        
+        .registration-hero {
+            flex: 1;
+            background: linear-gradient(135deg, #5D9CEC 0%, #4A89DC 100%);
+            color: white;
+            padding: 3rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
         }
-        .btn-primary:hover {
-            background-color: #f44336;
+        
+        .registration-hero::before {
+            content: '';
+            position: absolute;
+            top: -50px;
+            right: -50px;
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
         }
+        
+        .registration-hero::after {
+            content: '';
+            position: absolute;
+            bottom: -80px;
+            left: -30px;
+            width: 250px;
+            height: 250px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .registration-form {
+            flex: 1;
+            padding: 3rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        .hero-title {
+            font-weight: 700;
+            font-size: 2.2rem;
+            margin-bottom: 1rem;
+            position: relative;
+            z-index: 2;
+        }
+        
+        .hero-subtitle {
+            font-weight: 300;
+            font-size: 1.1rem;
+            opacity: 0.9;
+            margin-bottom: 2rem;
+            position: relative;
+            z-index: 2;
+        }
+        
+        .form-title {
+            font-weight: 700;
+            font-size: 1.8rem;
+            margin-bottom: 1.5rem;
+            color: #4A89DC;
+        }
+        
+        .form-subtitle {
+            color: #6c757d;
+            margin-bottom: 2rem;
+            font-size: 0.95rem;
+        }
+        
         .form-control {
             border-radius: 10px;
+            padding: 12px 15px;
+            border: 1px solid #e0e0e0;
+            transition: all 0.3s;
         }
+        
+        .form-control:focus {
+            border-color: #5D9CEC;
+            box-shadow: 0 0 0 0.25rem rgba(93, 156, 236, 0.25);
+        }
+        
+        .btn-primary {
+            background-color: #5D9CEC;
+            border: none;
+            padding: 12px;
+            font-weight: 500;
+            border-radius: 10px;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary:hover {
+            background-color: #4A89DC;
+            transform: translateY(-2px);
+        }
+        
         .form-label {
             font-weight: 500;
+            margin-bottom: 0.5rem;
+            color: #212529;
         }
-        h2 {
-            font-weight: 700;
+        
+        .input-group-text {
+            background-color: white;
+            border-right: none;
+        }
+        
+        .password-toggle {
+            cursor: pointer;
+            background-color: white;
+            border-left: none;
+        }
+        
+        .footer-text {
+            color: #6c757d;
+            font-size: 0.85rem;
+            margin-top: 2rem;
+            text-align: center;
+        }
+        
+        .login-link {
+            color: #5D9CEC;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .login-link:hover {
+            text-decoration: underline;
+        }
+        
+        @media (max-width: 992px) {
+            .registration-card {
+                flex-direction: column;
+            }
+            
+            .registration-hero {
+                padding: 2rem;
+                text-align: center;
+            }
         }
     </style>
 </head>
 
 <body>
-    <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-md-5">
-                <div class="card p-4">
-                    <div class="text-center mb-4">
-                        <i class="fas fa-user-plus fa-3x text-primary"></i>
-                        <h2 class="mt-2">Register</h2>
-                        <p class="text-muted">Create your account</p>
-                    </div>
-    
-                    {% with messages = get_flashed_messages(with_categories=true) %}
-                        {% if messages %}
-                            {% for category, message in messages %}
-                                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                                    {{ message }}
-                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                                </div>
-                                <script>
-                                    setTimeout(function() {
-                                        const alert = document.querySelector('.alert.alert-{{ category }}');
-                                        if (alert) {
-                                            alert.classList.remove('show');
-                                            alert.classList.add('fade');
-                                            setTimeout(() => alert.remove(), 500);
-                                        }
-                                    }, 5000);
-                                </script>
-                            {% endfor %}
-                        {% endif %}
-                    {% endwith %}
-    
-                    <form method="POST" action="{{ url_for('register_user') }}">
-                        <div class="mb-3">
+    <div class="registration-container">
+        <div class="registration-card">
+            <div class="registration-hero">
+                <h1 class="hero-title">Register Now!</h1>
+                <p class="hero-subtitle">Join our community and access exclusive events</p>
+                <ul class="list-unstyled">
+                    <li class="mb-2"><i class="fas fa-check-circle me-2"></i> Easy event management</li>
+                    <li class="mb-2"><i class="fas fa-check-circle me-2"></i> Personalized recommendations</li>
+                    <li class="mb-2"><i class="fas fa-check-circle me-2"></i> Secure registration</li>
+                </ul>
+            </div>
+            
+            <div class="registration-form">
+                <h2 class="form-title">Create Account</h2>
+                <p class="form-subtitle">Fill in your details to get started</p>
+                
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+                
+                <form method="POST" action="{{ url_for('register_user') }}">
+                    <div class="row g-3">
+                        <div class="col-md-6">
                             <label for="registration_number" class="form-label">Registration Number</label>
-                            <input type="text" name="registration_number" class="form-control" id="registration_number" required placeholder="Enter your registration number">
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-id-card"></i></span>
+                                <input type="text" name="registration_number" class="form-control" id="registration_number" required placeholder="STD001">
+                            </div>
                         </div>
                         
-                        <div class="mb-3">
+                        <div class="col-md-6">
                             <label for="name" class="form-label">Full Name</label>
-                            <input type="text" name="name" class="form-control" id="name" required placeholder="Enter your full name">
-                        </div>
-                    
-                        <div class="mb-3">
-                            <label for="email" class="form-label">Email</label>
-                            <input type="email" name="email" class="form-control" id="email" required placeholder="Enter email">
-                        </div>
-                    
-                        <div class="mb-3">
-                            <label for="password" class="form-label">Password</label>
-                            <input type="password" name="password" class="form-control" id="password" required placeholder="Enter password">
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-user"></i></span>
+                                <input type="text" name="name" class="form-control" id="name" required placeholder="John Doe">
+                            </div>
                         </div>
                         
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="semester" class="form-label">Semester</label>
-                                <input type="number" name="semester" class="form-control" id="semester" placeholder="Enter semester" min="1">
-                            </div>
-                            
-                            <div class="col-md-6 mb-3">
-                                <label for="year" class="form-label">Year</label>
-                                <input type="number" name="year" class="form-control" id="year" placeholder="Enter year" min="1">
+                        <div class="col-12">
+                            <label for="email" class="form-label">Email</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-envelope"></i></span>
+                                <input type="email" name="email" class="form-control" id="email" required placeholder="john@example.com">
                             </div>
                         </div>
-                    
-                        <div class="d-grid">
-                            <button type="submit" class="btn btn-primary">Register</button>
+                        
+                        <div class="col-12">
+                            <label for="password" class="form-label">Password</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                                <input type="password" name="password" class="form-control" id="password" required placeholder="••••••••">
+                                <span class="input-group-text password-toggle" onclick="togglePassword()">
+                                    <i class="fas fa-eye" id="toggleIcon"></i>
+                                </span>
+                            </div>
+                            <div class="form-text">Minimum 8 characters</div>
                         </div>
-                    </form>
-    
-                    <div class="text-center mt-3">
-                        <a href="{{ url_for('login') }}" class="small">Already have an account? Login</a>
+                        
+                        <div class="col-md-6">
+                            <label for="semester" class="form-label">Semester</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-calendar-alt"></i></span>
+                                <input type="number" name="semester" class="form-control" id="semester" placeholder="e.g. 3" min="1" max="8">
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label for="year" class="form-label">Year</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-graduation-cap"></i></span>
+                                <input type="number" name="year" class="form-control" id="year" placeholder="e.g. 2023" min="1" max="4">
+                            </div>
+                        </div>
+                        
+                        <div class="col-12 mt-4">
+                            <button type="submit" class="btn btn-primary w-100 py-3">
+                                <i class="fas fa-user-plus me-2"></i> Register Now
+                            </button>
+                        </div>
                     </div>
-    
-                    <div class="text-center mt-2">
-                        <small class="text-muted">© 2025 Event Manager</small>
-                    </div>
-                </div>
+                </form>
+                
+                <p class="text-center mt-4">Already have an account? <a href="{{ url_for('login') }}" class="login-link">Sign in here</a></p>
+                
+                <p class="footer-text">© 2025 Event Manager. All rights reserved.</p>
             </div>
         </div>
     </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function togglePassword() {
+            const passwordInput = document.getElementById('password');
+            const toggleIcon = document.getElementById('toggleIcon');
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                toggleIcon.classList.remove('fa-eye');
+                toggleIcon.classList.add('fa-eye-slash');
+            } else {
+                passwordInput.type = 'password';
+                toggleIcon.classList.remove('fa-eye-slash');
+                toggleIcon.classList.add('fa-eye');
+            }
+        }
+        
+        // Auto-hide alerts after 5 seconds
+        setTimeout(() => {
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(alert => {
+                const bsAlert = new bootstrap.Alert(alert);
+                bsAlert.close();
+            });
+        }, 5000);
+    </script>
 </body>
 </html>
-

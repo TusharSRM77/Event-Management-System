@@ -8,6 +8,7 @@ from MySQLdb.cursors import DictCursor
 import os
 import re
 from datetime import datetime
+from itsdangerous import URLSafeTimedSerializer
 
 # Load environment variables
 load_dotenv()
@@ -134,7 +135,89 @@ def logout():
     session.clear()
     flash('You have been logged out.', 'info')
     return redirect(url_for('login'))
+from itsdangerous import URLSafeTimedSerializer
 
+# Add these routes to your existing Flask app
+
+@app.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        
+        # Check if email exists in database
+        cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+        cursor.execute('SELECT * FROM users WHERE email = %s', (email,))
+        user = cursor.fetchone()
+        cursor.close()
+        
+        if user:
+            token = generate_token(email)
+            reset_url = url_for('reset_password', token=token, _external=True)
+            
+            # In development: Show the link on the page
+           
+            return render_template('forgot_password.html', reset_link=reset_url)
+        
+        flash('No account found with that email address.', 'danger')
+    
+    return render_template('forgot_password.html')
+
+@app.route('/reset-password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    email = verify_token(token)
+    if not email:
+        flash('Invalid or expired reset link.', 'danger')
+        return redirect(url_for('forgot_password'))
+    
+    # Verify user exists
+    cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+    cursor.execute('SELECT * FROM users WHERE email = %s', (email,))
+    user = cursor.fetchone()
+    cursor.close()
+    
+    if not user:
+        flash('User not found.', 'danger')
+        return redirect(url_for('forgot_password'))
+    
+    if request.method == 'POST':
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+        
+        if password != confirm_password:
+            flash('Passwords do not match!', 'danger')
+        else:
+            try:
+                hashed_password = generate_password_hash(password)
+                cursor = mysql.connection.cursor()
+                cursor.execute(
+                    "UPDATE users SET password = %s WHERE email = %s",
+                    (hashed_password, email)
+                )
+                mysql.connection.commit()
+                cursor.close()
+                flash('Password updated successfully! You can now login.', 'success')
+                return redirect(url_for('login'))
+            except Exception as e:
+                flash(f'Error updating password: {str(e)}', 'danger')
+    
+    return render_template('reset_password.html', token=token)
+
+def generate_token(email):
+    serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
+    return serializer.dumps(email, salt='password-reset-salt')
+
+def verify_token(token, expiration=3600):
+    serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
+    try:
+        email = serializer.loads(
+            token,
+            salt='password-reset-salt',
+            max_age=expiration
+        )
+        return email
+    except Exception as e:
+        print(f"Token verification failed: {str(e)}")
+        return None
 # Event Routes
 @app.route('/admin')
 def index():
