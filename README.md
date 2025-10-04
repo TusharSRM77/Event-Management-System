@@ -7,7 +7,6 @@ A comprehensive web-based Event Management System built with Flask, MySQL, and B
 - **Ajeet Singh Rawat** - [@ajeetsinghrawat](https://github.com/ajeetsinghrawat)
 - **Pratham Arun** - [@Pratham-Arun](https://github.com/Pratham-Arun)
 - **Tushar Chaudhary** - [@TusharSRM77](https://github.com/TusharSRM77)
-
 ---
 
 ## 📋 Table of Contents
@@ -381,14 +380,55 @@ The database follows **Third Normal Form (3NF)**:
 
 ### Entity-Relationship Diagram
 
+```
+┌─────────────────────────┐
+│        USERS            │
+├─────────────────────────┤
+│ PK: user_id             │
+│     registration_number │
+│     name                │
+│     email               │
+│     password            │
+│     semester            │
+│     year                │
+└──────────┬──────────────┘
+           │
+           │ Creates (1:M)
+           │
+           ▼
+┌─────────────────────────┐
+│        EVENTS           │
+├─────────────────────────┤
+│ PK: event_id            │
+│     name                │
+│     date                │
+│     time                │
+│     location            │
+└──────────┬──────────────┘
+           │
+           │ Has (1:M)
+           │
+           ▼
+┌─────────────────────────┐
+│    REGISTRATIONS        │
+├─────────────────────────┤
+│ PK: registration_id     │
+│ FK: event_id            │
+│ FK: user_id             │
+│     name                │
+│     email               │
+└─────────────────────────┘
+```
+
 **Entities:**
-- Users (user_id, registration_number, name, email, password, semester, year)
-- Events (event_id, name, date, time, location)
-- Registrations (registration_id, event_id, user_id)
+- **Users**: user_id, registration_number, name, email, password, semester, year
+- **Events**: event_id, name, date, time, location
+- **Registrations**: registration_id, event_id, user_id, name, email
 
 **Relationships:**
-- One User creates Many Events (Admin)
-- Many Users register for Many Events (Many-to-Many)
+- One User (Admin) creates Many Events (1:M)
+- One Event has Many Registrations (1:M)
+- Many Users register for Many Events through Registrations (M:N)
 
 ---
 
